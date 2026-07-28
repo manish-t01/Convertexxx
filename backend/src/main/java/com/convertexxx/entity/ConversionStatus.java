@@ -1,8 +1,9 @@
 package com.convertexxx.entity;
 
 public enum ConversionStatus {
-    PENDING,
+    UPLOADED,
     PROCESSING,
     COMPLETED,
-    FAILED
+    FAILED,
+    EXPIRED
 }

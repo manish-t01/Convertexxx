@@ -10,46 +10,56 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(name = "conversion_jobs")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @EntityListeners(AuditingEntityListener.class)
-public class User {
+public class ConversionJob {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(nullable = false)
-    private String fullName;
+    private String originalFileName;
+
+    private String convertedFileName;
+
+    @Column(nullable = false)
+    private String originalFormat;
+
+    @Column(nullable = false)
+    private String targetFormat;
+
+    @Column(nullable = false)
+    private Long fileSize;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ConversionStatus conversionStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StorageType storageType;
+
+    @Column(nullable = false)
+    private String inputFilePath;
+
+    private String outputFilePath;
 
     @Column(nullable = false, unique = true)
-    private String email;
-
-    private String password;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Role role;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Provider provider;
+    private String downloadToken;
 
     @Column(nullable = false)
-    private boolean isPremium;
+    private Integer downloadCount;
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<FileConversion> conversions;
-
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Subscription subscription;
+    @Column(nullable = false)
+    private LocalDateTime expiresAt;
 
     @CreatedDate
     @Column(nullable = false, updatable = false)
