@@ -1,0 +1,18 @@
+# Dependencies and build artifacts
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+backend/target/
+
+# Environment and runtime storage
+.env
+.env.*
+!*.example
+storage/
+
+# IDE and operating-system files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
