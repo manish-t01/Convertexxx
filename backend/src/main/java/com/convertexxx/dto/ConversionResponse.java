@@ -14,7 +14,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class ConversionResponse {
     private UUID jobId;
+    private String originalFileName;
+    private String targetFormat;
     private ConversionStatus status;
-    private String downloadUrl;
-    private String message;
 }

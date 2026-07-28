@@ -19,6 +19,16 @@ public class GlobalExceptionHandler {
         return response(HttpStatus.BAD_REQUEST, exception.getMessage());
     }
 
+    @ExceptionHandler(InvalidFileException.class)
+    ResponseEntity<ApiResponse<Void>> handleInvalidFileException(InvalidFileException exception) {
+        return response(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+
+    @ExceptionHandler(FileStorageException.class)
+    ResponseEntity<ApiResponse<Void>> handleFileStorageException(FileStorageException exception) {
+        return response(HttpStatus.INTERNAL_SERVER_ERROR, exception.getMessage());
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     ResponseEntity<ApiResponse<Void>> handleResourceNotFoundException(ResourceNotFoundException exception) {
         return response(HttpStatus.NOT_FOUND, exception.getMessage());

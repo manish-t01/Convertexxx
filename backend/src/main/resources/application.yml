@@ -16,6 +16,15 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
 
 cors:
   allowed-origins: http://localhost:3000
+
+app:
+  upload:
+    directory: uploads/
+    max-file-size: 50MB
