@@ -24,3 +24,8 @@ export const uploadFile = async (
 
   return response.data;
 };
+
+export const getJobStatus = async (jobId: string) => {
+  const response = await apiClient.get(`/jobs/${jobId}`);
+  return response.data;
+};

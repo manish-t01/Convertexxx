@@ -1,23 +1,42 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { CloudUpload, File, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
+import { CloudUpload, File, CheckCircle, XCircle, Download, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { uploadFile } from "@/services/api";
+import { uploadFile, getJobStatus } from "@/services/api";
+import type { Tool } from "@/components/home/tool-card";
 
 type UploadDropzoneProperties = {
   supportedTypes: string;
+  activeTool: Tool;
 };
 
-export function UploadDropzone({ supportedTypes }: UploadDropzoneProperties) {
+export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzoneProperties) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  
+  // App states: idle -> uploading -> processing -> success | error
+  const [status, setStatus] = useState<"idle" | "uploading" | "processing" | "success" | "error">("idle");
   const [message, setMessage] = useState<string>("");
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Clear state if the active tool changes
+  useEffect(() => {
+    if (status !== "uploading" && status !== "processing") {
+      resetState();
+    }
+  }, [activeTool.id, status]);
+
+  const resetState = () => {
+    setSelectedFile(null);
+    setStatus("idle");
+    setMessage("");
+    setProgress(0);
+    setCurrentJobId(null);
+  };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -48,33 +67,70 @@ export function UploadDropzone({ supportedTypes }: UploadDropzoneProperties) {
     setStatus("idle");
     setMessage("");
     setProgress(0);
+    setCurrentJobId(null);
   };
 
   const handleUpload = async () => {
     if (!selectedFile) return;
 
-    setUploading(true);
     setProgress(0);
-    setStatus("idle");
+    setStatus("uploading");
+    setMessage("Uploading file...");
 
     try {
-      // Defaulting to "pdf" target format for now as per initial instructions
-      const response = await uploadFile(selectedFile, "pdf", (percentCompleted) => {
+      const response = await uploadFile(selectedFile, activeTool.targetFormat, (percentCompleted) => {
         setProgress(percentCompleted);
       });
 
-      if (response.success) {
-        setStatus("success");
-        setMessage("Upload successful");
+      if (response.success && response.data?.jobId) {
+        setStatus("processing");
+        setMessage(`Processing: ${activeTool.title}...`);
+        setCurrentJobId(response.data.jobId);
+        pollJobStatus(response.data.jobId);
       } else {
         setStatus("error");
         setMessage(response.message || "Upload failed");
       }
-    } catch (error: any) {
+    } catch (err: unknown) {
       setStatus("error");
-      setMessage(error.response?.data?.message || "Upload failed");
-    } finally {
-      setUploading(false);
+      if (err instanceof Error && 'response' in err) {
+        const axiosError = err as { response?: { data?: { message?: string } } };
+        setMessage(axiosError.response?.data?.message || "Upload failed");
+      } else {
+        setMessage("Upload failed");
+      }
+    }
+  };
+
+  const pollJobStatus = async (jobId: string) => {
+    try {
+      const response = await getJobStatus(jobId);
+      if (response.success && response.data) {
+        const jobStatus = response.data.conversionStatus;
+        
+        if (jobStatus === "COMPLETED") {
+          setStatus("success");
+          setMessage("Conversion successful!");
+        } else if (jobStatus === "FAILED") {
+          setStatus("error");
+          setMessage(response.data.errorMessage || "Conversion failed");
+        } else {
+          // Continue polling
+          setTimeout(() => pollJobStatus(jobId), 1500);
+        }
+      } else {
+        setStatus("error");
+        setMessage("Failed to retrieve job status");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Error checking job status");
+    }
+  };
+
+  const handleDownload = () => {
+    if (currentJobId) {
+      window.location.href = `http://localhost:8080/api/v1/jobs/${currentJobId}/download`;
     }
   };
 
@@ -88,20 +144,29 @@ export function UploadDropzone({ supportedTypes }: UploadDropzoneProperties) {
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-center rounded-2xl border border-dashed bg-slate-900/60 p-6 text-center sm:p-8 transition-colors ${
+      className={`relative flex h-full min-h-[400px] flex-col items-center justify-center rounded-2xl border border-dashed bg-slate-900/60 p-6 text-center sm:p-8 transition-colors ${
         isDragging ? "border-sky-400 bg-slate-800/80" : "border-slate-700"
       }`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Show active tool badge when idle */}
+      {!selectedFile && (
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 rounded-full border border-sky-400/20 bg-sky-400/10 px-4 py-1 text-sm text-sky-300">
+          Ready for {activeTool.title}
+        </div>
+      )}
+
       {!selectedFile ? (
-        <>
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-sky-400/10 text-sky-300">
-            <CloudUpload aria-hidden="true" className="h-6 w-6" />
+        <div className="mt-8 flex flex-col items-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-400/10 text-sky-300">
+            <CloudUpload aria-hidden="true" className="h-8 w-8" />
           </div>
-          <h3 className="mt-4 text-lg font-semibold text-white">Drop your files here</h3>
-          <p className="mt-2 text-sm text-slate-400">Drag and drop your documents, or choose files from your device.</p>
+          <h3 className="mt-6 text-xl font-semibold text-white">Drop your file here</h3>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-slate-400">
+            Drag and drop your document to convert it to {activeTool.targetFormat.toUpperCase()}, or browse your device.
+          </p>
           
           <input
             type="file"
@@ -113,72 +178,99 @@ export function UploadDropzone({ supportedTypes }: UploadDropzoneProperties) {
           <Button 
             type="button" 
             variant="outline" 
-            size="sm" 
-            className="mt-5"
+            size="lg" 
+            className="mt-8 hover:bg-sky-400/10 hover:text-sky-300 hover:border-sky-400/30"
             onClick={() => fileInputRef.current?.click()}
           >
             Browse files
           </Button>
           <p className="mt-4 text-xs text-slate-500">Supported formats: {supportedTypes}</p>
-        </>
+        </div>
       ) : (
-        <div className="flex w-full flex-col items-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-sky-400/10 text-sky-300">
-            <File aria-hidden="true" className="h-6 w-6" />
+        <div className="flex w-full flex-col items-center max-w-md mx-auto">
+          <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl ${
+            status === "success" ? "bg-emerald-400/10 text-emerald-400" :
+            status === "error" ? "bg-rose-400/10 text-rose-400" :
+            "bg-sky-400/10 text-sky-300"
+          }`}>
+            {status === "success" ? <CheckCircle className="h-8 w-8" /> : 
+             status === "error" ? <XCircle className="h-8 w-8" /> : 
+             <File className="h-8 w-8" />}
           </div>
-          <h3 className="mt-4 max-w-full truncate text-lg font-semibold text-white px-4">
+          
+          <h3 className="mt-6 max-w-full truncate px-4 text-xl font-semibold text-white">
             {selectedFile.name}
           </h3>
-          <p className="mt-1 text-sm text-slate-400">{formatFileSize(selectedFile.size)}</p>
+          <p className="mt-2 text-sm text-slate-400">{formatFileSize(selectedFile.size)}</p>
 
           {/* Progress Bar */}
-          {uploading && (
-            <div className="mt-6 w-full max-w-xs space-y-2">
-              <div className="flex justify-between text-xs text-slate-400">
-                <span>Uploading...</span>
-                <span>{progress}%</span>
+          {(status === "uploading" || status === "processing") && (
+            <div className="mt-8 w-full space-y-3">
+              <div className="flex justify-between text-sm font-medium text-slate-300">
+                <span>{message}</span>
+                {status === "uploading" && <span>{progress}%</span>}
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
                 <div 
-                  className="h-full rounded-full bg-sky-400 transition-all duration-300 ease-in-out"
-                  style={{ width: `${progress}%` }}
+                  className={`h-full rounded-full transition-all duration-300 ease-in-out ${
+                    status === "processing" ? "bg-indigo-400 w-full animate-pulse" : "bg-sky-400"
+                  }`}
+                  style={{ width: status === "processing" ? "100%" : `${progress}%` }}
                 />
               </div>
             </div>
           )}
 
           {/* Status Message */}
-          {status !== "idle" && (
-            <div className={`mt-4 flex items-center gap-2 text-sm font-medium ${
-              status === "success" ? "text-emerald-400" : "text-rose-400"
+          {(status === "success" || status === "error") && (
+            <div className={`mt-6 flex flex-col items-center gap-2 p-4 rounded-xl border ${
+              status === "success" 
+                ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" 
+                : "border-rose-500/20 bg-rose-500/10 text-rose-300"
             }`}>
-              {status === "success" ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-              {message}
+              <div className="flex items-center gap-2 text-base font-semibold">
+                {status === "success" ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+                {status === "success" ? "Conversion Complete" : "Conversion Failed"}
+              </div>
+              <p className="text-sm text-center mt-1 opacity-90">{message}</p>
             </div>
           )}
 
-          <div className="mt-6 flex gap-3">
-            <Button 
-              type="button" 
-              variant="outline" 
-              size="sm"
-              disabled={uploading}
-              onClick={() => {
-                setSelectedFile(null);
-                setStatus("idle");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              type="button" 
-              size="sm"
-              disabled={uploading || status === "success"}
-              onClick={handleUpload}
-            >
-              {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Upload File
-            </Button>
+          {/* Actions */}
+          <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
+            {status === "idle" && (
+              <>
+                <Button type="button" variant="outline" onClick={resetState}>
+                  Cancel
+                </Button>
+                <Button type="button" onClick={handleUpload}>
+                  Convert to {activeTool.targetFormat.toUpperCase()}
+                </Button>
+              </>
+            )}
+            
+            {status === "success" && (
+              <>
+                <Button type="button" variant="outline" onClick={resetState}>
+                  Convert another
+                </Button>
+                <Button type="button" onClick={handleDownload} className="bg-emerald-600 hover:bg-emerald-500 text-white border-transparent">
+                  <Download className="mr-2 h-4 w-4" />
+                  Download File
+                </Button>
+              </>
+            )}
+            
+            {status === "error" && (
+              <>
+                <Button type="button" variant="outline" onClick={resetState}>
+                  Try a different file
+                </Button>
+                <Button type="button" onClick={handleUpload}>
+                  Retry conversion
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}
