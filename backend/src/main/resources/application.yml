@@ -21,8 +21,9 @@ spring:
       max-file-size: 50MB
       max-request-size: 50MB
 
-cors:
-  allowed-origins: http://localhost:3000
+convertexxx:
+  cors:
+    allowed-origins: http://localhost:3000
 
 app:
   upload:

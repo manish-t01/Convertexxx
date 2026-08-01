@@ -8,6 +8,8 @@ import com.convertexxx.exception.FileStorageException;
 import com.convertexxx.exception.InvalidFileException;
 import com.convertexxx.repository.ConversionJobRepository;
 import com.convertexxx.service.UploadService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -25,6 +27,8 @@ import java.util.UUID;
 
 @Service
 public class UploadServiceImpl implements UploadService {
+
+    private static final Logger log = LoggerFactory.getLogger(UploadServiceImpl.class);
 
     private final ConversionJobRepository conversionJobRepository;
     private final Path uploadLocation;
@@ -51,6 +55,8 @@ public class UploadServiceImpl implements UploadService {
 
     @Override
     public ConversionResponse uploadFile(MultipartFile file, String targetFormat) {
+        log.info("Received upload request for targetFormat: {}", targetFormat);
+        
         if (file.isEmpty()) {
             throw new InvalidFileException("File is empty.");
         }
@@ -73,6 +79,8 @@ public class UploadServiceImpl implements UploadService {
             throw new InvalidFileException("Target format is missing.");
         }
         
+        log.info("Validation passed for file: {}, size: {}", originalFileName, file.getSize());
+
         // Generate a secure unique filename
         String generatedFileName = UUID.randomUUID().toString() + "." + originalFormat;
         Path targetLocation = this.uploadLocation.resolve(generatedFileName);
@@ -80,6 +88,7 @@ public class UploadServiceImpl implements UploadService {
         try {
             // Save file
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+            log.info("File successfully stored at: {}", targetLocation);
         } catch (IOException ex) {
             throw new FileStorageException("Could not store file " + originalFileName + ". Please try again!", ex);
         }
@@ -101,13 +110,17 @@ public class UploadServiceImpl implements UploadService {
                 .build();
 
         job = conversionJobRepository.save(job);
+        log.info("Database record created successfully with job ID: {}", job.getId());
 
-        return ConversionResponse.builder()
+        ConversionResponse response = ConversionResponse.builder()
                 .jobId(job.getId())
                 .originalFileName(job.getOriginalFileName())
                 .targetFormat(job.getTargetFormat())
                 .status(job.getConversionStatus())
                 .build();
+                
+        log.info("Returning success response for job ID: {}", job.getId());
+        return response;
     }
 
     private String getFileExtension(String fileName) {

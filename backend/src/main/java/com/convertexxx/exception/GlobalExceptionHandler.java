@@ -6,8 +6,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ValidationException.class)
     ResponseEntity<ApiResponse<Void>> handleValidationException(ValidationException exception) {
@@ -36,7 +41,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiResponse<Void>> handleException(Exception exception) {
-        return response(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred.");
+        log.error("Unhandled exception occurred", exception);
+        return response(HttpStatus.INTERNAL_SERVER_ERROR, exception.getMessage() != null ? exception.getMessage() : "An unexpected error occurred.");
     }
 
     private ResponseEntity<ApiResponse<Void>> response(HttpStatus status, String message) {
