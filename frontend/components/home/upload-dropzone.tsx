@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
 import { CloudUpload, File, CheckCircle, XCircle, Download, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadFile, getJobStatus } from "@/services/api";
@@ -23,12 +23,7 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Clear state if the active tool changes
-  useEffect(() => {
-    if (status !== "uploading" && status !== "processing") {
-      resetState();
-    }
-  }, [activeTool.id, status]);
+
 
   const resetState = () => {
     setSelectedFile(null);

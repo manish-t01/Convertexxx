@@ -36,6 +36,7 @@ export function ToolsSection() {
         <div className="mt-10 grid gap-5 lg:grid-cols-[0.9fr_2fr]">
           <div id="upload-dropzone-section" className="scroll-mt-24 h-full">
             <UploadDropzone 
+              key={activeTool.id}
               supportedTypes="PDF, JPG, PNG, and more" 
               activeTool={activeTool} 
             />
