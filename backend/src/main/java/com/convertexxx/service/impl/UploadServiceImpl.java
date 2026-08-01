@@ -7,6 +7,7 @@ import com.convertexxx.entity.StorageType;
 import com.convertexxx.exception.FileStorageException;
 import com.convertexxx.exception.InvalidFileException;
 import com.convertexxx.repository.ConversionJobRepository;
+import com.convertexxx.service.ConversionService;
 import com.convertexxx.service.UploadService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +32,7 @@ public class UploadServiceImpl implements UploadService {
     private static final Logger log = LoggerFactory.getLogger(UploadServiceImpl.class);
 
     private final ConversionJobRepository conversionJobRepository;
+    private final ConversionService conversionService;
     private final Path uploadLocation;
 
     private static final List<String> SUPPORTED_FORMATS = Arrays.asList(
@@ -41,9 +43,11 @@ public class UploadServiceImpl implements UploadService {
 
     public UploadServiceImpl(
             ConversionJobRepository conversionJobRepository,
+            ConversionService conversionService,
             @Value("${app.upload.directory:uploads/}") String uploadDir
     ) {
         this.conversionJobRepository = conversionJobRepository;
+        this.conversionService = conversionService;
         this.uploadLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
         
         try {
@@ -120,6 +124,10 @@ public class UploadServiceImpl implements UploadService {
                 .build();
                 
         log.info("Returning success response for job ID: {}", job.getId());
+        
+        // Trigger async processing
+        conversionService.processJob(job.getId());
+        
         return response;
     }
 

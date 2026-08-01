@@ -58,6 +58,13 @@ public class ConversionJob {
     @Column(nullable = false)
     private LocalDateTime expiresAt;
 
+    private LocalDateTime processingStartTime;
+
+    private LocalDateTime processingEndTime;
+
+    @Column(length = 2000)
+    private String errorMessage;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
