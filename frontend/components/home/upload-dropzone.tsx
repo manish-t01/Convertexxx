@@ -20,6 +20,7 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
   const [status, setStatus] = useState<"idle" | "uploading" | "processing" | "success" | "error">("idle");
   const [message, setMessage] = useState<string>("");
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [jobResult, setJobResult] = useState<{ fileSize?: number; convertedFileSize?: number } | null>(null);
   
   const [splitMode, setSplitMode] = useState<"all" | "extract">("all");
   const [conversionParameters, setConversionParameters] = useState<string>("");
@@ -34,6 +35,7 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
     setMessage("");
     setProgress(0);
     setCurrentJobId(null);
+    setJobResult(null);
     setSplitMode("all");
     setConversionParameters("");
   };
@@ -153,6 +155,7 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
         
         if (jobStatus === "COMPLETED") {
           setStatus("success");
+          setJobResult(response.data);
           setMessage("Conversion successful!");
         } else if (jobStatus === "FAILED") {
           setStatus("error");
@@ -358,7 +361,37 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
                 {status === "success" ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
                 {status === "success" ? "Conversion Complete" : "Conversion Failed"}
               </div>
-              <p className="text-sm text-center mt-1 opacity-90">{message}</p>
+              
+              {status === "success" && activeTool.id === "compress-pdf" && jobResult && jobResult.fileSize && jobResult.convertedFileSize ? (
+                <div className="mt-3 w-full max-w-sm flex flex-col gap-2 text-sm">
+                  <div className="flex justify-between border-b border-emerald-500/20 pb-1">
+                    <span className="text-emerald-400/80">Original Size</span>
+                    <span className="font-medium">{(jobResult.fileSize / (1024 * 1024)).toFixed(1)} MB</span>
+                  </div>
+                  <div className="flex justify-between border-b border-emerald-500/20 pb-1">
+                    <span className="text-emerald-400/80">Compressed Size</span>
+                    <span className="font-medium">{(jobResult.convertedFileSize / (1024 * 1024)).toFixed(1)} MB</span>
+                  </div>
+                  {jobResult.fileSize - jobResult.convertedFileSize > 100 * 1024 ? (
+                    <>
+                      <div className="flex justify-between border-b border-emerald-500/20 pb-1">
+                        <span className="text-emerald-400/80">Space Saved</span>
+                        <span className="font-medium">{((jobResult.fileSize - jobResult.convertedFileSize) / (1024 * 1024)).toFixed(1)} MB</span>
+                      </div>
+                      <div className="flex justify-between pb-1">
+                        <span className="text-emerald-400/80">Reduction</span>
+                        <span className="font-medium font-bold text-emerald-300">{((1 - jobResult.convertedFileSize / jobResult.fileSize) * 100).toFixed(1)}%</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="mt-2 text-center text-xs opacity-90 text-emerald-400/80">
+                      This PDF was already highly optimized. Only a small reduction was possible.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-center mt-1 opacity-90">{message}</p>
+              )}
             </div>
           )}
 

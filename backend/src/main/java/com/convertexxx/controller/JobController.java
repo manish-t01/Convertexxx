@@ -34,6 +34,18 @@ public class JobController {
         ConversionJob job = conversionJobRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Job not found with ID: " + id));
 
+        Long convertedSize = null;
+        if (job.getConversionStatus() == ConversionStatus.COMPLETED && job.getOutputFilePath() != null) {
+            try {
+                Path file = Paths.get(job.getOutputFilePath());
+                if (Files.exists(file)) {
+                    convertedSize = Files.size(file);
+                }
+            } catch (Exception e) {
+                // Ignore exception, convertedSize remains null
+            }
+        }
+
         JobDto jobDto = JobDto.builder()
                 .id(job.getId())
                 .originalFileName(job.getOriginalFileName())
@@ -41,6 +53,7 @@ public class JobController {
                 .originalFormat(job.getOriginalFormat())
                 .targetFormat(job.getTargetFormat())
                 .fileSize(job.getFileSize())
+                .convertedFileSize(convertedSize)
                 .conversionStatus(job.getConversionStatus())
                 .processingStartTime(job.getProcessingStartTime())
                 .processingEndTime(job.getProcessingEndTime())

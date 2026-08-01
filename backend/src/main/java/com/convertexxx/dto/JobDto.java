@@ -16,6 +16,7 @@ public class JobDto {
     private String originalFormat;
     private String targetFormat;
     private Long fileSize;
+    private Long convertedFileSize;
     private ConversionStatus conversionStatus;
     private LocalDateTime processingStartTime;
     private LocalDateTime processingEndTime;
