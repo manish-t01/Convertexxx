@@ -63,6 +63,21 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
   };
 
   const processFileSelection = (files: File[]) => {
+    if (!allowMultiple && files.length > 1) {
+      setStatus("error");
+      setMessage("Please upload only one file for this tool.");
+      return;
+    }
+
+    if (activeTool.id === "compress-pdf" || activeTool.id === "split-pdf" || activeTool.id === "pdf-to-img") {
+      const invalidFiles = files.filter(f => !f.name.toLowerCase().endsWith(".pdf") && f.type !== "application/pdf");
+      if (invalidFiles.length > 0) {
+        setStatus("error");
+        setMessage("Only PDF files are supported for this tool.");
+        return;
+      }
+    }
+
     setSelectedFiles(prev => {
       if (allowMultiple) {
         return [...prev, ...files];
