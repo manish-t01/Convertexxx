@@ -31,3 +31,5 @@ app:
     max-file-size: 50MB
   output:
     directory: converted/
+  libreoffice:
+    executable: soffice

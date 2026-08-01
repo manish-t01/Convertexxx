@@ -36,7 +36,7 @@ public class UploadServiceImpl implements UploadService {
     private final Path uploadLocation;
 
     private static final List<String> SUPPORTED_FORMATS = Arrays.asList(
-            "pdf", "docx", "doc", "pptx", "ppt", "xlsx", "xls",
+            "pdf", "docx", "doc", "odt", "rtf", "pptx", "ppt", "odp", "xlsx", "xls", "ods",
             "png", "jpg", "jpeg", "webp", "gif", "bmp",
             "txt", "csv", "mp4", "mp3", "mov"
     );
