@@ -58,7 +58,7 @@ public class UploadServiceImpl implements UploadService {
     }
 
     @Override
-    public ConversionResponse uploadFiles(List<MultipartFile> files, String targetFormat) {
+    public ConversionResponse uploadFiles(List<MultipartFile> files, String targetFormat, String conversionParameters) {
         log.info("Received upload request for targetFormat: {}", targetFormat);
         
         if (files == null || files.isEmpty()) {
@@ -70,13 +70,13 @@ public class UploadServiceImpl implements UploadService {
         }
 
         if (files.size() == 1) {
-            return processSingleFile(files.get(0), targetFormat);
+            return processSingleFile(files.get(0), targetFormat, conversionParameters);
         } else {
-            return processMultipleFiles(files, targetFormat);
+            return processMultipleFiles(files, targetFormat, conversionParameters);
         }
     }
 
-    private ConversionResponse processSingleFile(MultipartFile file, String targetFormat) {
+    private ConversionResponse processSingleFile(MultipartFile file, String targetFormat, String conversionParameters) {
         if (file.isEmpty()) {
             throw new InvalidFileException("File is empty.");
         }
@@ -107,10 +107,10 @@ public class UploadServiceImpl implements UploadService {
             throw new FileStorageException("Could not store file " + originalFileName + ". Please try again!", ex);
         }
 
-        return createAndTriggerJob(originalFileName, originalFormat, targetFormat, file.getSize(), targetLocation.toString());
+        return createAndTriggerJob(originalFileName, originalFormat, targetFormat, file.getSize(), targetLocation.toString(), conversionParameters);
     }
 
-    private ConversionResponse processMultipleFiles(List<MultipartFile> files, String targetFormat) {
+    private ConversionResponse processMultipleFiles(List<MultipartFile> files, String targetFormat, String conversionParameters) {
         long totalSize = 0;
         String firstFormat = "";
         
@@ -164,10 +164,10 @@ public class UploadServiceImpl implements UploadService {
         }
 
         String title = files.size() + " files";
-        return createAndTriggerJob(title, originalFormat, targetFormat, totalSize, jobDir.toString());
+        return createAndTriggerJob(title, originalFormat, targetFormat, totalSize, jobDir.toString(), conversionParameters);
     }
 
-    private ConversionResponse createAndTriggerJob(String originalFileName, String originalFormat, String targetFormat, long fileSize, String inputFilePath) {
+    private ConversionResponse createAndTriggerJob(String originalFileName, String originalFormat, String targetFormat, long fileSize, String inputFilePath, String conversionParameters) {
         ConversionJob job = ConversionJob.builder()
                 .originalFileName(originalFileName)
                 .convertedFileName(null)
@@ -181,6 +181,7 @@ public class UploadServiceImpl implements UploadService {
                 .downloadToken(UUID.randomUUID().toString())
                 .downloadCount(0)
                 .expiresAt(LocalDateTime.now().plusHours(24))
+                .conversionParameters(conversionParameters)
                 .build();
 
         job = conversionJobRepository.save(job);

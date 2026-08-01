@@ -26,11 +26,12 @@ public class UploadController {
      * @return ApiResponse containing the job ID and upload status
      */
     @PostMapping("/upload")
-    public ResponseEntity<ApiResponse<ConversionResponse>> uploadFile(
+    public ResponseEntity<ApiResponse<ConversionResponse>> uploadFiles(
             @RequestParam("file") List<MultipartFile> files,
-            @RequestParam("targetFormat") String targetFormat) {
+            @RequestParam("targetFormat") String targetFormat,
+            @RequestParam(value = "conversionParameters", required = false) String conversionParameters) {
             
-        ConversionResponse response = uploadService.uploadFiles(files, targetFormat);
+        ConversionResponse response = uploadService.uploadFiles(files, targetFormat, conversionParameters);
         
         return ResponseEntity.ok(ApiResponse.success("Files uploaded successfully", response));
     }

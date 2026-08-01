@@ -7,7 +7,8 @@ const apiClient = axios.create({
 export const uploadFile = async (
   files: File | File[],
   targetFormat: string,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  conversionParameters?: string
 ) => {
   const formData = new FormData();
   
@@ -18,6 +19,9 @@ export const uploadFile = async (
   }
   
   formData.append('targetFormat', targetFormat);
+  if (conversionParameters) {
+    formData.append('conversionParameters', conversionParameters);
+  }
 
   const response = await apiClient.post('/upload', formData, {
     onUploadProgress: (progressEvent: AxiosProgressEvent) => {

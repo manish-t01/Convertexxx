@@ -20,6 +20,9 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
   const [status, setStatus] = useState<"idle" | "uploading" | "processing" | "success" | "error">("idle");
   const [message, setMessage] = useState<string>("");
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  
+  const [splitMode, setSplitMode] = useState<"all" | "extract">("all");
+  const [conversionParameters, setConversionParameters] = useState<string>("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -31,6 +34,8 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
     setMessage("");
     setProgress(0);
     setCurrentJobId(null);
+    setSplitMode("all");
+    setConversionParameters("");
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -68,6 +73,8 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
     setMessage("");
     setProgress(0);
     setCurrentJobId(null);
+    setSplitMode("all");
+    setConversionParameters("");
   };
 
   const removeFile = (index: number) => {
@@ -82,9 +89,26 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
     setMessage("Uploading file" + (selectedFiles.length > 1 ? "s" : "") + "...");
 
     try {
-      const response = await uploadFile(selectedFiles, activeTool.targetFormat, (percentCompleted) => {
-        setProgress(percentCompleted);
-      });
+      let finalTargetFormat = activeTool.targetFormat;
+      if (activeTool.id === "split-pdf") {
+        if (splitMode === "extract") {
+          if (!conversionParameters.trim()) {
+            setStatus("error");
+            setMessage("Please enter the pages you want to extract.");
+            return;
+          }
+          finalTargetFormat = "pdf";
+        } else {
+          finalTargetFormat = "zip";
+        }
+      }
+
+      const response = await uploadFile(
+        selectedFiles, 
+        finalTargetFormat, 
+        (percentCompleted) => setProgress(percentCompleted),
+        activeTool.id === "split-pdf" && splitMode === "extract" ? conversionParameters.trim() : undefined
+      );
 
       if (response.success && response.data?.jobId) {
         setStatus("processing");
@@ -223,6 +247,61 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
             ))}
           </div>
 
+          {status === "idle" && activeTool.id === "split-pdf" && selectedFiles.length > 0 && (
+            <div className="w-full text-left bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 mb-4">
+              <h4 className="text-sm font-medium text-slate-200 mb-3">Split Mode</h4>
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input 
+                    type="radio" 
+                    name="splitMode" 
+                    value="all" 
+                    checked={splitMode === "all"} 
+                    onChange={() => setSplitMode("all")}
+                    className="w-4 h-4 text-sky-500 bg-slate-700 border-slate-600 focus:ring-sky-500 focus:ring-offset-slate-900" 
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-slate-200">Split Every Page</div>
+                    <div className="text-xs text-slate-400">Save every page as a separate PDF in a ZIP file</div>
+                  </div>
+                </label>
+                
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input 
+                    type="radio" 
+                    name="splitMode" 
+                    value="extract" 
+                    checked={splitMode === "extract"} 
+                    onChange={() => setSplitMode("extract")}
+                    className="w-4 h-4 text-sky-500 bg-slate-700 border-slate-600 focus:ring-sky-500 focus:ring-offset-slate-900" 
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-slate-200">Extract Selected Pages</div>
+                    <div className="text-xs text-slate-400">Generate one PDF with only the selected pages</div>
+                  </div>
+                </label>
+              </div>
+
+              {splitMode === "extract" && (
+                <div className="mt-4 pt-4 border-t border-slate-700/50">
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
+                    Extract Pages
+                  </label>
+                  <input 
+                    type="text" 
+                    value={conversionParameters}
+                    onChange={(e) => setConversionParameters(e.target.value)}
+                    placeholder="e.g. 1-5, 8, 11-13" 
+                    className="w-full bg-slate-900 border border-slate-700 rounded-md py-2 px-3 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent placeholder-slate-500"
+                  />
+                  <div className="mt-2 text-xs text-slate-400">
+                    Examples: 1-5, 3,7,10, 1-5,8,10-15
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {status === "idle" && allowMultiple && (
             <Button 
               type="button" 
@@ -276,7 +355,7 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
                   Cancel
                 </Button>
                 <Button type="button" onClick={handleUpload}>
-                  Convert to {activeTool.targetFormat.toUpperCase()}
+                  Convert {activeTool.id === "split-pdf" && splitMode === "extract" ? "to PDF" : `to ${activeTool.targetFormat.toUpperCase()}`}
                 </Button>
               </>
             )}

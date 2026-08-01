@@ -1,5 +1,6 @@
 package com.convertexxx.converter;
 
+import com.convertexxx.entity.ConversionJob;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -13,12 +14,12 @@ public class ConverterFactory {
         this.converters = converters;
     }
 
-    public FileConverter getConverter(String inputFormat, String targetFormat) {
+    public FileConverter getConverter(ConversionJob job) {
         for (FileConverter converter : converters) {
-            if (converter.supports(inputFormat, targetFormat)) {
+            if (converter.supports(job)) {
                 return converter;
             }
         }
-        throw new UnsupportedOperationException("No converter found for " + inputFormat + " to " + targetFormat);
+        throw new UnsupportedOperationException("No converter found for " + job.getOriginalFormat() + " to " + job.getTargetFormat());
     }
 }

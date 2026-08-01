@@ -10,6 +10,13 @@ public interface FileConverter {
     boolean supports(String inputFormat, String targetFormat);
 
     /**
+     * Determines if this converter supports the specific job.
+     */
+    default boolean supports(ConversionJob job) {
+        return supports(job.getOriginalFormat(), job.getTargetFormat());
+    }
+
+    /**
      * Executes the conversion process.
      */
     void convert(ConversionJob job) throws Exception;

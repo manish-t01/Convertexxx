@@ -65,6 +65,9 @@ public class ConversionJob {
     @Column(length = 2000)
     private String errorMessage;
 
+    @Column(length = 1000)
+    private String conversionParameters;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

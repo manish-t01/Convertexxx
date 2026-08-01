@@ -44,7 +44,7 @@ public class ConversionServiceImpl implements ConversionService {
 
         try {
             // Find appropriate converter
-            FileConverter converter = converterFactory.getConverter(job.getOriginalFormat(), job.getTargetFormat());
+            FileConverter converter = converterFactory.getConverter(job);
             log.info("Found converter {} for job ID: {}", converter.getClass().getSimpleName(), jobId);
 
             // Execute conversion — the converter updates convertedFileName and outputFilePath on the job
