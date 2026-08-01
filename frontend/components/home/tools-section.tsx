@@ -10,7 +10,7 @@ const tools: Tool[] = [
   { id: "img-to-pdf", icon: FileOutput, title: "Image to PDF", description: "Turn images into a polished, shareable PDF document.", targetFormat: "pdf" },
   { id: "pdf-to-img", icon: FileImage, title: "PDF to Image", description: "Export PDF pages into image files with clarity.", targetFormat: "png" },
   { id: "merge-pdf", icon: Combine, title: "Merge PDF", description: "Bring multiple PDFs together in one organized file.", targetFormat: "pdf" },
-  { id: "split-pdf", icon: Scissors, title: "Split PDF", description: "Separate a PDF into focused pages or document sections.", targetFormat: "pdf" },
+  { id: "split-pdf", icon: Scissors, title: "Split PDF", description: "Separate a PDF into focused pages or document sections.", targetFormat: "zip" },
   { id: "compress-pdf", icon: Minimize2, title: "Compress PDF", description: "Reduce PDF file size while keeping documents useful.", targetFormat: "pdf" }
 ];
 
