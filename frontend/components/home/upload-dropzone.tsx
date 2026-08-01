@@ -12,7 +12,7 @@ type UploadDropzoneProperties = {
 };
 
 export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzoneProperties) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [progress, setProgress] = useState(0);
   
@@ -23,10 +23,10 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-
+  const allowMultiple = activeTool.id === "img-to-pdf" || activeTool.id === "merge-pdf";
 
   const resetState = () => {
-    setSelectedFile(null);
+    setSelectedFiles([]);
     setStatus("idle");
     setMessage("");
     setProgress(0);
@@ -47,33 +47,42 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
     setIsDragging(false);
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      processFileSelection(e.dataTransfer.files[0]);
+      processFileSelection(Array.from(e.dataTransfer.files));
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      processFileSelection(e.target.files[0]);
+      processFileSelection(Array.from(e.target.files));
     }
   };
 
-  const processFileSelection = (file: File) => {
-    setSelectedFile(file);
+  const processFileSelection = (files: File[]) => {
+    setSelectedFiles(prev => {
+      if (allowMultiple) {
+        return [...prev, ...files];
+      }
+      return [files[0]]; // fallback to single file if not allowed
+    });
     setStatus("idle");
     setMessage("");
     setProgress(0);
     setCurrentJobId(null);
   };
 
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleUpload = async () => {
-    if (!selectedFile) return;
+    if (selectedFiles.length === 0) return;
 
     setProgress(0);
     setStatus("uploading");
-    setMessage("Uploading file...");
+    setMessage("Uploading file" + (selectedFiles.length > 1 ? "s" : "") + "...");
 
     try {
-      const response = await uploadFile(selectedFile, activeTool.targetFormat, (percentCompleted) => {
+      const response = await uploadFile(selectedFiles, activeTool.targetFormat, (percentCompleted) => {
         setProgress(percentCompleted);
       });
 
@@ -147,26 +156,27 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
       onDrop={handleDrop}
     >
       {/* Show active tool badge when idle */}
-      {!selectedFile && (
+      {selectedFiles.length === 0 && (
         <div className="absolute top-6 left-1/2 -translate-x-1/2 rounded-full border border-sky-400/20 bg-sky-400/10 px-4 py-1 text-sm text-sky-300">
           Ready for {activeTool.title}
         </div>
       )}
 
-      {!selectedFile ? (
+      {selectedFiles.length === 0 ? (
         <div className="mt-8 flex flex-col items-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-400/10 text-sky-300">
             <CloudUpload aria-hidden="true" className="h-8 w-8" />
           </div>
-          <h3 className="mt-6 text-xl font-semibold text-white">Drop your file here</h3>
+          <h3 className="mt-6 text-xl font-semibold text-white">Drop your {allowMultiple ? "files" : "file"} here</h3>
           <p className="mt-2 max-w-sm text-sm leading-6 text-slate-400">
-            Drag and drop your document to convert it to {activeTool.targetFormat.toUpperCase()}, or browse your device.
+            Drag and drop your document{allowMultiple ? "s" : ""} to convert to {activeTool.targetFormat.toUpperCase()}, or browse your device.
           </p>
           
           <input
             type="file"
             ref={fileInputRef}
             className="hidden"
+            multiple={allowMultiple}
             onChange={handleFileChange}
           />
           
@@ -182,8 +192,8 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
           <p className="mt-4 text-xs text-slate-500">Supported formats: {supportedTypes}</p>
         </div>
       ) : (
-        <div className="flex w-full flex-col items-center max-w-md mx-auto">
-          <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl ${
+        <div className="flex w-full flex-col items-center max-w-md mx-auto mt-4">
+          <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl mb-6 ${
             status === "success" ? "bg-emerald-400/10 text-emerald-400" :
             status === "error" ? "bg-rose-400/10 text-rose-400" :
             "bg-sky-400/10 text-sky-300"
@@ -192,15 +202,42 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
              status === "error" ? <XCircle className="h-8 w-8" /> : 
              <File className="h-8 w-8" />}
           </div>
-          
-          <h3 className="mt-6 max-w-full truncate px-4 text-xl font-semibold text-white">
-            {selectedFile.name}
-          </h3>
-          <p className="mt-2 text-sm text-slate-400">{formatFileSize(selectedFile.size)}</p>
+
+          {/* File list */}
+          <div className="w-full space-y-2 mb-4 max-h-48 overflow-y-auto pr-2">
+            {selectedFiles.map((f, i) => (
+              <div key={i} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <File className="h-5 w-5 text-sky-400 shrink-0" />
+                  <div className="truncate text-sm font-medium text-white">{f.name}</div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-xs text-slate-400">{formatFileSize(f.size)}</span>
+                  {status === "idle" && (
+                    <button onClick={() => removeFile(i)} className="text-slate-400 hover:text-rose-400 transition-colors">
+                      <XCircle className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {status === "idle" && allowMultiple && (
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              className="mb-4 text-sky-400 hover:text-sky-300 hover:bg-sky-400/10"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              + Add more files
+            </Button>
+          )}
 
           {/* Progress Bar */}
           {(status === "uploading" || status === "processing") && (
-            <div className="mt-8 w-full space-y-3">
+            <div className="mt-4 w-full space-y-3">
               <div className="flex justify-between text-sm font-medium text-slate-300">
                 <span>{message}</span>
                 {status === "uploading" && <span>{progress}%</span>}
@@ -218,7 +255,7 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
 
           {/* Status Message */}
           {(status === "success" || status === "error") && (
-            <div className={`mt-6 flex flex-col items-center gap-2 p-4 rounded-xl border ${
+            <div className={`mt-2 flex w-full flex-col items-center gap-2 p-4 rounded-xl border ${
               status === "success" 
                 ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" 
                 : "border-rose-500/20 bg-rose-500/10 text-rose-300"
@@ -233,7 +270,7 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
 
           {/* Actions */}
           <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
-            {status === "idle" && (
+            {status === "idle" && selectedFiles.length > 0 && (
               <>
                 <Button type="button" variant="outline" onClick={resetState}>
                   Cancel
@@ -267,6 +304,14 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
               </>
             )}
           </div>
+
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            multiple={allowMultiple}
+            onChange={handleFileChange}
+          />
         </div>
       )}
     </div>

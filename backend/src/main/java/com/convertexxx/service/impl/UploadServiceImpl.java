@@ -58,9 +58,25 @@ public class UploadServiceImpl implements UploadService {
     }
 
     @Override
-    public ConversionResponse uploadFile(MultipartFile file, String targetFormat) {
+    public ConversionResponse uploadFiles(List<MultipartFile> files, String targetFormat) {
         log.info("Received upload request for targetFormat: {}", targetFormat);
         
+        if (files == null || files.isEmpty()) {
+            throw new InvalidFileException("No files provided.");
+        }
+
+        if (targetFormat == null || targetFormat.trim().isEmpty()) {
+            throw new InvalidFileException("Target format is missing.");
+        }
+
+        if (files.size() == 1) {
+            return processSingleFile(files.get(0), targetFormat);
+        } else {
+            return processMultipleFiles(files, targetFormat);
+        }
+    }
+
+    private ConversionResponse processSingleFile(MultipartFile file, String targetFormat) {
         if (file.isEmpty()) {
             throw new InvalidFileException("File is empty.");
         }
@@ -79,38 +95,92 @@ public class UploadServiceImpl implements UploadService {
             throw new InvalidFileException("Unsupported file type: " + originalFormat);
         }
 
-        if (targetFormat == null || targetFormat.trim().isEmpty()) {
-            throw new InvalidFileException("Target format is missing.");
-        }
-        
         log.info("Validation passed for file: {}, size: {}", originalFileName, file.getSize());
 
-        // Generate a secure unique filename
         String generatedFileName = UUID.randomUUID().toString() + "." + originalFormat;
         Path targetLocation = this.uploadLocation.resolve(generatedFileName);
 
         try {
-            // Save file
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
             log.info("File successfully stored at: {}", targetLocation);
         } catch (IOException ex) {
             throw new FileStorageException("Could not store file " + originalFileName + ". Please try again!", ex);
         }
 
-        // Create database record
+        return createAndTriggerJob(originalFileName, originalFormat, targetFormat, file.getSize(), targetLocation.toString());
+    }
+
+    private ConversionResponse processMultipleFiles(List<MultipartFile> files, String targetFormat) {
+        long totalSize = 0;
+        String firstFormat = "";
+        
+        for (MultipartFile file : files) {
+            if (file.isEmpty()) {
+                throw new InvalidFileException("One of the files is empty.");
+            }
+            
+            String originalFileName = StringUtils.cleanPath(file.getOriginalFilename() != null ? file.getOriginalFilename() : "");
+            if (originalFileName.contains("..")) {
+                throw new InvalidFileException("Filename contains invalid path sequence " + originalFileName);
+            }
+            
+            String format = getFileExtension(originalFileName).toLowerCase();
+            if (!SUPPORTED_FORMATS.contains(format)) {
+                throw new InvalidFileException("Unsupported file type: " + format);
+            }
+            
+            if (firstFormat.isEmpty()) {
+                firstFormat = format;
+            }
+            
+            totalSize += file.getSize();
+        }
+
+        String jobDirName = UUID.randomUUID().toString();
+        Path jobDir = this.uploadLocation.resolve(jobDirName);
+        
+        try {
+            Files.createDirectories(jobDir);
+            for (int i = 0; i < files.size(); i++) {
+                MultipartFile file = files.get(i);
+                String originalFileName = StringUtils.cleanPath(file.getOriginalFilename() != null ? file.getOriginalFilename() : "");
+                String format = getFileExtension(originalFileName).toLowerCase();
+                String storedName = String.format("%04d_%s.%s", i, UUID.randomUUID().toString().substring(0, 8), format);
+                Path targetLocation = jobDir.resolve(storedName);
+                Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException ex) {
+            throw new FileStorageException("Could not store files. Please try again!", ex);
+        }
+
+        // Determine format identifier for routing
+        String originalFormat = "multiple";
+        if (targetFormat.equalsIgnoreCase("pdf")) {
+            if (firstFormat.equalsIgnoreCase("pdf")) {
+                originalFormat = "pdf"; // PDF Merge
+            } else {
+                originalFormat = "images"; // Image to PDF
+            }
+        }
+
+        String title = files.size() + " files";
+        return createAndTriggerJob(title, originalFormat, targetFormat, totalSize, jobDir.toString());
+    }
+
+    private ConversionResponse createAndTriggerJob(String originalFileName, String originalFormat, String targetFormat, long fileSize, String inputFilePath) {
         ConversionJob job = ConversionJob.builder()
                 .originalFileName(originalFileName)
                 .convertedFileName(null)
                 .originalFormat(originalFormat)
                 .targetFormat(targetFormat)
-                .fileSize(file.getSize())
+                .fileSize(fileSize)
                 .conversionStatus(ConversionStatus.UPLOADED)
                 .storageType(StorageType.LOCAL)
-                .inputFilePath(targetLocation.toString())
+                .inputFilePath(inputFilePath)
                 .outputFilePath(null)
                 .downloadToken(UUID.randomUUID().toString())
                 .downloadCount(0)
-                .expiresAt(LocalDateTime.now().plusHours(24)) // E.g., expire in 24 hours
+                .expiresAt(LocalDateTime.now().plusHours(24))
                 .build();
 
         job = conversionJobRepository.save(job);
@@ -125,7 +195,6 @@ public class UploadServiceImpl implements UploadService {
                 
         log.info("Returning success response for job ID: {}", job.getId());
         
-        // Trigger async processing
         conversionService.processJob(job.getId());
         
         return response;

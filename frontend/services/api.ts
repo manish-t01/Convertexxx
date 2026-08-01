@@ -5,12 +5,18 @@ const apiClient = axios.create({
 });
 
 export const uploadFile = async (
-  file: File,
+  files: File | File[],
   targetFormat: string,
   onProgress?: (progress: number) => void
 ) => {
   const formData = new FormData();
-  formData.append('file', file);
+  
+  if (Array.isArray(files)) {
+    files.forEach(file => formData.append('file', file));
+  } else {
+    formData.append('file', files);
+  }
+  
   formData.append('targetFormat', targetFormat);
 
   const response = await apiClient.post('/upload', formData, {

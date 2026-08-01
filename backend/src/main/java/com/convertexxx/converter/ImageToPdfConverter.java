@@ -26,7 +26,7 @@ public class ImageToPdfConverter implements FileConverter {
 
     private static final Logger log = LoggerFactory.getLogger(ImageToPdfConverter.class);
 
-    private static final List<String> SUPPORTED_INPUTS = List.of("jpg", "jpeg", "png", "bmp", "gif");
+    private static final List<String> SUPPORTED_INPUTS = List.of("jpg", "jpeg", "png", "bmp", "gif", "images");
     private static final List<String> SUPPORTED_OUTPUTS = List.of("pdf");
 
     private final Path outputDirectory;
@@ -59,7 +59,7 @@ public class ImageToPdfConverter implements FileConverter {
 
         Path inputPath = Paths.get(job.getInputFilePath());
         if (!Files.exists(inputPath)) {
-            throw new ConversionException("Input file does not exist: " + inputPath);
+            throw new ConversionException("Input file or directory does not exist: " + inputPath);
         }
 
         if (!SUPPORTED_OUTPUTS.contains(targetFormat)) {
@@ -72,8 +72,16 @@ public class ImageToPdfConverter implements FileConverter {
         Files.createDirectories(this.outputDirectory);
 
         try (PDDocument document = new PDDocument()) {
-            // Using a structured approach to allow for easy multi-image expansion in the future
-            addImageToDocument(document, inputPath);
+            if (Files.isDirectory(inputPath)) {
+                try (var stream = Files.list(inputPath)) {
+                    List<Path> files = stream.sorted().toList();
+                    for (Path file : files) {
+                        addImageToDocument(document, file);
+                    }
+                }
+            } else {
+                addImageToDocument(document, inputPath);
+            }
 
             document.save(outputPath.toFile());
         } catch (IOException ex) {

@@ -6,6 +6,7 @@ import com.convertexxx.service.UploadService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -26,11 +27,11 @@ public class UploadController {
      */
     @PostMapping("/upload")
     public ResponseEntity<ApiResponse<ConversionResponse>> uploadFile(
-            @RequestParam("file") MultipartFile file,
+            @RequestParam("file") List<MultipartFile> files,
             @RequestParam("targetFormat") String targetFormat) {
             
-        ConversionResponse response = uploadService.uploadFile(file, targetFormat);
+        ConversionResponse response = uploadService.uploadFiles(files, targetFormat);
         
-        return ResponseEntity.ok(ApiResponse.success("File uploaded successfully", response));
+        return ResponseEntity.ok(ApiResponse.success("Files uploaded successfully", response));
     }
 }
