@@ -29,3 +29,5 @@ app:
   upload:
     directory: uploads/
     max-file-size: 50MB
+  output:
+    directory: converted/

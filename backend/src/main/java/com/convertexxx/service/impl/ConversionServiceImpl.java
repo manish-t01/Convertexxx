@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -36,8 +37,9 @@ public class ConversionServiceImpl implements ConversionService {
                 .orElseThrow(() -> new IllegalArgumentException("Job not found with ID: " + jobId));
 
         // Update to PROCESSING state
+        LocalDateTime processingStart = LocalDateTime.now();
         job.setConversionStatus(ConversionStatus.PROCESSING);
-        job.setProcessingStartTime(LocalDateTime.now());
+        job.setProcessingStartTime(processingStart);
         job = conversionJobRepository.save(job);
 
         try {
@@ -45,19 +47,24 @@ public class ConversionServiceImpl implements ConversionService {
             FileConverter converter = converterFactory.getConverter(job.getOriginalFormat(), job.getTargetFormat());
             log.info("Found converter {} for job ID: {}", converter.getClass().getSimpleName(), jobId);
 
-            // Execute conversion
+            // Execute conversion — the converter updates convertedFileName and outputFilePath on the job
             converter.convert(job);
 
             // On success
+            LocalDateTime processingEnd = LocalDateTime.now();
             job.setConversionStatus(ConversionStatus.COMPLETED);
-            job.setProcessingEndTime(LocalDateTime.now());
-            // outputFilePath and convertedFileName would normally be updated inside convert()
+            job.setProcessingEndTime(processingEnd);
             conversionJobRepository.save(job);
-            
-            log.info("Successfully completed job ID: {}", jobId);
+
+            Duration duration = Duration.between(processingStart, processingEnd);
+            log.info("Successfully completed job ID: {} | originalFile={} | {} -> {} | outputFile={} | duration={}ms",
+                    jobId, job.getOriginalFileName(), job.getOriginalFormat(), job.getTargetFormat(),
+                    job.getConvertedFileName(), duration.toMillis());
 
         } catch (Exception ex) {
-            log.error("Failed to process job ID: {}", jobId, ex);
+            log.error("Failed to process job ID: {} | originalFile={} | {} -> {} | error={}",
+                    jobId, job.getOriginalFileName(), job.getOriginalFormat(), job.getTargetFormat(),
+                    ex.getMessage(), ex);
             job.setConversionStatus(ConversionStatus.FAILED);
             job.setErrorMessage(ex.getMessage());
             job.setProcessingEndTime(LocalDateTime.now());
