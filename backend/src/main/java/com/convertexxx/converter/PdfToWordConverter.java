@@ -5,11 +5,10 @@ import com.convertexxx.exception.ConversionException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.text.PDFTextStripper;
-import org.apache.poi.xwpf.usermodel.BreakType;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.apache.poi.xwpf.usermodel.XWPFParagraph;
-import org.apache.poi.xwpf.usermodel.XWPFRun;
+import com.convertexxx.converter.layout.DocumentLayout;
+import com.convertexxx.converter.layout.LayoutAnalyzer;
+import com.convertexxx.converter.render.WordRenderer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -33,6 +32,15 @@ public class PdfToWordConverter implements FileConverter {
 
     @Value("${conversion.output.dir:uploads}")
     private Path outputDirectory;
+
+    private final LayoutAnalyzer layoutAnalyzer;
+    private final WordRenderer wordRenderer;
+
+    @Autowired
+    public PdfToWordConverter(LayoutAnalyzer layoutAnalyzer, WordRenderer wordRenderer) {
+        this.layoutAnalyzer = layoutAnalyzer;
+        this.wordRenderer = wordRenderer;
+    }
 
     @Override
     public boolean supports(String inputFormat, String targetFormat) {
@@ -58,54 +66,14 @@ public class PdfToWordConverter implements FileConverter {
         log.info("Starting PDF to Word conversion | jobId={} | originalFile={}", job.getId(), job.getOriginalFileName());
 
         try (PDDocument document = Loader.loadPDF(inputPath.toFile());
-             XWPFDocument wordDocument = new XWPFDocument();
              FileOutputStream out = new FileOutputStream(outputPath.toFile())) {
 
-            PDFTextStripper stripper = new PDFTextStripper();
-            stripper.setSortByPosition(true); // Helps maintain readable spacing based on visual layout
+            // 1. Analyze PDF into a renderer-independent DocumentLayout
+            DocumentLayout documentLayout = layoutAnalyzer.analyze(document);
 
-            int totalPages = document.getNumberOfPages();
-            boolean hasContent = false;
+            // 2. Render DocumentLayout into Word DOCX via WordRenderer
+            wordRenderer.render(documentLayout, out);
 
-            for (int p = 1; p <= totalPages; p++) {
-                stripper.setStartPage(p);
-                stripper.setEndPage(p);
-                
-                String pageText = stripper.getText(document);
-                
-                // Graceful skip for empty pages (e.g., scanned pages without OCR)
-                if (pageText == null || pageText.trim().isEmpty()) {
-                    log.debug("Skipping empty page {} in job {}", p, job.getId());
-                    continue;
-                }
-                
-                hasContent = true;
-
-                // Split text into paragraphs by newline to preserve paragraph breaks correctly
-                String[] paragraphs = pageText.split("\\r?\\n");
-                
-                for (String paraText : paragraphs) {
-                    XWPFParagraph paragraph = wordDocument.createParagraph();
-                    XWPFRun run = paragraph.createRun();
-                    // POI correctly handles UTF-8 / Unicode text natively via Java Strings
-                    run.setText(paraText); 
-                }
-
-                // Preserve page breaks between pages, except for the last page
-                if (p < totalPages) {
-                    XWPFParagraph pageBreakParagraph = wordDocument.createParagraph();
-                    XWPFRun pageBreakRun = pageBreakParagraph.createRun();
-                    pageBreakRun.addBreak(BreakType.PAGE);
-                }
-            }
-            
-            if (!hasContent) {
-                log.warn("No extractable text found in the entire document for job {}", job.getId());
-                // We still write out an empty docx to fulfill the conversion gracefully
-            }
-
-            wordDocument.write(out);
-            
         } catch (IOException e) {
             log.error("Failed to convert PDF to Word | jobId={} | originalFile={}", job.getId(), job.getOriginalFileName(), e);
             throw new ConversionException("Failed to convert PDF to Word: " + e.getMessage(), e);

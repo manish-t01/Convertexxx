@@ -62,7 +62,12 @@ public class CompressPdfConverter implements FileConverter {
         
         if (targetFormat.equals(TARGET_FORMAT) && 
             (job.getConversionParameters() == null || job.getConversionParameters().trim().isEmpty())) {
-            return true;
+            
+            if (job.getInputFilePath() == null) {
+                return false;
+            }
+            Path inputPath = Paths.get(job.getInputFilePath());
+            return !Files.isDirectory(inputPath);
         }
         
         return false;

@@ -44,6 +44,18 @@ public class PdfMergeConverter implements FileConverter {
     }
 
     @Override
+    public boolean supports(ConversionJob job) {
+        if (!supports(job.getOriginalFormat(), job.getTargetFormat())) {
+            return false;
+        }
+        if (job.getInputFilePath() == null) {
+            return false;
+        }
+        Path inputPath = Paths.get(job.getInputFilePath());
+        return Files.isDirectory(inputPath);
+    }
+
+    @Override
     public void convert(ConversionJob job) throws Exception {
         Instant start = Instant.now();
 
