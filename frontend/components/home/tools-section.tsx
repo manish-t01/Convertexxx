@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Combine, FileImage, FileOutput, Minimize2, Scissors } from "lucide-react";
+import { Combine, FileImage, FileOutput, Minimize2, Scissors, FileText } from "lucide-react";
 
 import { UploadDropzone } from "@/components/home/upload-dropzone";
 import { ToolCard, type Tool } from "@/components/home/tool-card";
@@ -11,7 +11,8 @@ const tools: Tool[] = [
   { id: "pdf-to-img", icon: FileImage, title: "PDF to Image", description: "Export PDF pages into image files with clarity.", targetFormat: "png" },
   { id: "merge-pdf", icon: Combine, title: "Merge PDF", description: "Bring multiple PDFs together in one organized file.", targetFormat: "pdf" },
   { id: "split-pdf", icon: Scissors, title: "Split PDF", description: "Separate a PDF into focused pages or document sections.", targetFormat: "zip" },
-  { id: "compress-pdf", icon: Minimize2, title: "Compress PDF", description: "Reduce PDF file size while keeping documents useful.", targetFormat: "pdf" }
+  { id: "compress-pdf", icon: Minimize2, title: "Compress PDF", description: "Reduce PDF file size while keeping documents useful.", targetFormat: "pdf" },
+  { id: "pdf-to-word", icon: FileText, title: "PDF to Word", description: "Convert PDFs into editable Word (.docx) documents.", targetFormat: "docx" }
 ];
 
 export function ToolsSection() {

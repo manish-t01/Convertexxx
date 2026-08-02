@@ -71,7 +71,7 @@ export function UploadDropzone({ supportedTypes, activeTool }: UploadDropzonePro
       return;
     }
 
-    if (activeTool.id === "compress-pdf" || activeTool.id === "split-pdf" || activeTool.id === "pdf-to-img") {
+    if (activeTool.id === "compress-pdf" || activeTool.id === "split-pdf" || activeTool.id === "pdf-to-img" || activeTool.id === "pdf-to-word") {
       const invalidFiles = files.filter(f => !f.name.toLowerCase().endsWith(".pdf") && f.type !== "application/pdf");
       if (invalidFiles.length > 0) {
         setStatus("error");
